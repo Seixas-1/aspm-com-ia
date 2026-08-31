@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────
+#  SEGREDOS — não remova estas linhas.
+#  Uma chave que entra no histórico do Git não sai só apagando
+#  o arquivo depois. Se acontecer: revogue a chave e gere outra.
+# ─────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+credentials.json
+secrets.yaml
+secrets.yml
+.streamlit/secrets.toml
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Relatórios gerados pelos scanners ──
+# São saída, não código. Regeram a cada execução.
+reports/
+output/
+bandit-report.*
+trivy-report.*
+zap-report.*
+*-findings.json
+normalized-findings.json
+
+# ── Ambiente local ──
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs e banco local ──
+*.log
+*.sqlite
+*.sqlite3
+*.db

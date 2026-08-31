@@ -1,0 +1,81 @@
+# Roda os scanners de segurança a cada push e pull request.
+#
+# Os achados NÃO quebram o build de propósito: a demo_app é vulnerável
+# por definição. O objetivo aqui é gerar evidência contínua — os
+# relatórios ficam anexados a cada execução, na aba Actions.
+
+name: Segurança (SAST + SCA)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sast:
+    name: SAST · Bandit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Bandit
+        run: pip install bandit
+
+      # Ajuste o caminho se a pasta analisada não for demo_app
+      - name: Rodar Bandit
+        continue-on-error: true
+        run: bandit -r demo_app -f json -o bandit-report.json
+
+      - name: Resumo legível no log
+        continue-on-error: true
+        run: bandit -r demo_app -f screen
+
+      - name: Publicar relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          if-no-files-found: warn
+
+  sca:
+    name: SCA · Trivy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Instala o Trivy direto do release oficial — evita depender de
+      # uma versão específica da action, que muda com frequência.
+      - name: Instalar Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
+
+      - name: Rodar Trivy
+        continue-on-error: true
+        run: |
+          trivy fs . \
+            --scanners vuln \
+            --severity CRITICAL,HIGH,MEDIUM \
+            --format json \
+            --output trivy-report.json
+
+      - name: Resumo legível no log
+        continue-on-error: true
+        run: trivy fs . --scanners vuln --severity CRITICAL,HIGH --format table
+
+      - name: Publicar relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+          if-no-files-found: warn

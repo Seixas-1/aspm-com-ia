@@ -1,0 +1,53 @@
+<!--
+  Regras customizadas ASPM com IA — Tomahawks
+  ONDE COLAR: dentro de /var/ossec/etc/rules/local_rules.xml no MANAGER do Wazuh
+  (adicione este bloco <group> inteiro, não apague o que já existe no arquivo).
+
+  Depois de colar, reinicie o manager:
+    sudo systemctl restart wazuh-manager
+  ou:
+    sudo /var/ossec/bin/wazuh-control restart
+
+  Para testar antes de reiniciar, use o wazuh-logtest:
+    sudo /var/ossec/bin/wazuh-logtest
+  e cole uma linha do arquivo aspm_wazuh_alerts.json para conferir se a
+  regra "acende" (deve aparecer um id de regra 100101-100104 no resultado).
+-->
+<group name="aspm,vulnerability,">
+
+  <!-- Regra base: identifica qualquer evento vindo do nosso ASPM (nível 0 = não gera alerta sozinha, só classifica) -->
+  <rule id="100100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="origem">aspm-ia-tomahawks</field>
+    <description>Achado ASPM com IA (agrupador base)</description>
+  </rule>
+
+  <rule id="100101" level="12">
+    <if_sid>100100</if_sid>
+    <field name="prioridade">CRITICA</field>
+    <description>ASPM: Vulnerabilidade CRÍTICA detectada - $(titulo)</description>
+    <group>aspm_critica,vulnerability_detection,</group>
+  </rule>
+
+  <rule id="100102" level="9">
+    <if_sid>100100</if_sid>
+    <field name="prioridade">ALTA</field>
+    <description>ASPM: Vulnerabilidade ALTA detectada - $(titulo)</description>
+    <group>aspm_alta,vulnerability_detection,</group>
+  </rule>
+
+  <rule id="100103" level="6">
+    <if_sid>100100</if_sid>
+    <field name="prioridade">MEDIA</field>
+    <description>ASPM: Vulnerabilidade MÉDIA detectada - $(titulo)</description>
+    <group>aspm_media,vulnerability_detection,</group>
+  </rule>
+
+  <rule id="100104" level="3">
+    <if_sid>100100</if_sid>
+    <field name="prioridade">BAIXA</field>
+    <description>ASPM: Vulnerabilidade BAIXA detectada - $(titulo)</description>
+    <group>aspm_baixa,vulnerability_detection,</group>
+  </rule>
+
+</group>

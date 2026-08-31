@@ -1,0 +1,46 @@
+[
+  {
+    "id": "demo001",
+    "ferramenta": "bandit",
+    "titulo": "SQL Injection via concatenação de string em login.py",
+    "descricao": "A query SQL é construída concatenando diretamente o input do usuário (username), permitindo injeção de comandos SQL arbitrários.",
+    "arquivo": "app/login.py",
+    "linha": 42,
+    "cve": null,
+    "cvss": 9.8,
+    "severidade_original": "HIGH"
+  },
+  {
+    "id": "demo002",
+    "ferramenta": "trivy",
+    "titulo": "requests - CVE-2023-32681",
+    "descricao": "A biblioteca requests, em versões afetadas, pode vazar o header Proxy-Authorization ao seguir redirecionamentos entre domínios diferentes.",
+    "arquivo": "requirements.txt",
+    "linha": null,
+    "cve": "CVE-2023-32681",
+    "cvss": 7.2,
+    "severidade_original": "HIGH"
+  },
+  {
+    "id": "demo003",
+    "ferramenta": "dast",
+    "titulo": "Reflected XSS no formulário de contato",
+    "descricao": "Ao enviar '<script>alert(1)</script>' no campo mensagem, o payload foi refletido sem sanitização na resposta HTTP, confirmado dinamicamente pelo OWASP ZAP contra a aplicação em execução.",
+    "arquivo": "http://localhost:5000/contato",
+    "linha": null,
+    "cve": "CWE-79",
+    "cvss": 6.5,
+    "severidade_original": "Medium"
+  },
+  {
+    "id": "demo004",
+    "ferramenta": "bandit",
+    "titulo": "Informação de debug exposta em produção",
+    "descricao": "DEBUG=True está habilitado, expondo stack traces detalhados e variáveis de ambiente em caso de erro.",
+    "arquivo": "app/settings.py",
+    "linha": 7,
+    "cve": null,
+    "cvss": 3.1,
+    "severidade_original": "LOW"
+  }
+]
