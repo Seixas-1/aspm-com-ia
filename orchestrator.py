@@ -100,7 +100,18 @@ def coletar_achados(target_path: str, dast_url: str | None = None) -> list[dict]
     return normalizados
 
 
-def processar_com_agentes(achados: list[dict], contexto_ativo: dict | None = None) -> list[dict]:
+def processar_com_agentes(
+    achados: list[dict],
+    contexto_ativo: dict | None = None,
+    on_progress=None,
+) -> list[dict]:
+    """
+    Roda os três agentes sobre cada achado e devolve a lista ordenada por score.
+
+    `on_progress`, se informado, é chamado como on_progress(analisados, total)
+    a cada achado processado. Serve para quem consome esta função sem terminal
+    — a API HTTP, por exemplo. Sem ele, o comportamento é exatamente o de antes.
+    """
     risk_agent = RiskAgent()
     explanation_agent = ExplanationAgent()
     remediation_agent = RemediationAgent()
@@ -126,6 +137,9 @@ def processar_com_agentes(achados: list[dict], contexto_ativo: dict | None = Non
             vuln["remediacao_ia"] = "N/A"
 
         resultado.append(vuln)
+
+        if on_progress is not None:
+            on_progress(i, total)
 
     resultado.sort(key=lambda v: v.get("score_ia") or 0, reverse=True)
     return resultado

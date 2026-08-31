@@ -35,6 +35,9 @@ htmlcov/
 # São saída, não código. Regeram a cada execução.
 reports/
 output/
+resultados/
+tmp_scans/
+resultado.json
 bandit-report.*
 trivy-report.*
 zap-report.*

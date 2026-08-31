@@ -394,3 +394,71 @@ artefatos da execução, na aba **Actions**.
 Os jobs usam `continue-on-error` de propósito: a `demo_app` é vulnerável por
 definição, então achados **não** devem quebrar o build. O objetivo é gerar
 evidência contínua de que a análise roda dentro do ciclo, não bloquear merge.
+
+## 14. API HTTP (FastAPI)
+
+`api.py` expõe o mesmo pipeline como serviço, para que qualquer cliente —
+front-end web, outra ferramenta, a própria CI — consuma o motor pela rede.
+
+A camada **não reimplementa nada**: importa `coletar_achados`,
+`coletar_via_defectdojo` e `processar_com_agentes` do `orchestrator.py`.
+A linha de comando continua funcionando exatamente como antes.
+
+```bash
+uvicorn api:app --reload
+```
+
+Documentação interativa (Swagger) em <http://localhost:8000/docs>.
+
+### Endpoints
+
+| Método | Rota | Para quê |
+|---|---|---|
+| `GET` | `/health` | Serviço de pé, provedor de IA e se a chave está configurada |
+| `POST` | `/scans` | Dispara um escaneamento. Devolve `scan_id` na hora (202) |
+| `GET` | `/scans` | Lista os escaneamentos, mais recente primeiro |
+| `GET` | `/scans/{id}` | Status, progresso e contagem por prioridade |
+| `GET` | `/scans/{id}/findings` | Achados, com filtros — alimenta a tabela do front |
+| `GET` | `/scans/{id}/findings/{fid}` | Um achado, com explicação e remediação da IA |
+| `DELETE` | `/scans/{id}` | Remove o escaneamento e seu arquivo de resultado |
+
+Filtros de `/findings`: `prioridade` (repetível), `ferramenta`, `score_min`
+e `busca` (texto livre em título e descrição).
+
+### Escaneamentos são assíncronos
+
+Um scan real leva minutos — scanners e uma chamada de IA por achado. Então o
+`POST /scans` responde **202 Accepted** imediatamente com o `scan_id`, e o
+cliente acompanha:
+
+```
+na_fila → coletando → analisando → concluido
+                          ↑
+              progresso: {analisados, total}
+```
+
+O campo `progresso` existe porque `processar_com_agentes` aceita um callback
+opcional `on_progress(analisados, total)`. Quem não passa o callback — o CLI —
+não muda em nada.
+
+### Exemplo
+
+```bash
+# dispara em modo demo (não precisa de scanner instalado)
+curl -X POST http://localhost:8000/scans \
+  -H "Content-Type: application/json" \
+  -d '{"modo":"demo","exposto_internet":true,"dados_sensiveis":true}'
+# -> {"scan_id":"a1b2c3d4e5f6","status":"na_fila",...}
+
+# acompanha
+curl http://localhost:8000/scans/a1b2c3d4e5f6
+
+# só o que é crítico ou alto
+curl "http://localhost:8000/scans/a1b2c3d4e5f6/findings?prioridade=CRITICA&prioridade=ALTA"
+```
+
+### Persistência
+
+Os resultados ficam em memória e são gravados em `resultados/{scan_id}.json`,
+recarregados quando o servidor sobe. É proposital não haver banco de dados:
+para o escopo do projeto, arquivo resolve e mantém tudo inspecionável.
