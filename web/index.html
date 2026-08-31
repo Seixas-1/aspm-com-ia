@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASPM com IA — Painel</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <h1>ASPM com IA</h1>
+  <span class="sub">Achados de Bandit, Trivy e OWASP ZAP, priorizados por agentes de IA</span>
+  <span id="saude">verificando…</span>
+</header>
+
+<div class="layout">
+
+  <aside>
+    <!-- Novo escaneamento -->
+    <section class="card">
+      <h2>Novo escaneamento</h2>
+
+      <div class="campo">
+        <label for="modo">Modo</label>
+        <select id="modo">
+          <option value="demo">Demo — dados de exemplo</option>
+          <option value="path">Diretório — Bandit + Trivy</option>
+          <option value="defectdojo">Via DefectDojo</option>
+        </select>
+      </div>
+
+      <div class="campo" id="campo-path" hidden>
+        <label for="path">Caminho do código</label>
+        <input type="text" id="path" value="./demo_app" spellcheck="false">
+      </div>
+
+      <div class="campo" id="campo-dast" hidden>
+        <label for="dast">URL para o DAST (opcional)</label>
+        <input type="text" id="dast" placeholder="http://localhost:5000" spellcheck="false">
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="exposto"> Exposto à internet
+      </label>
+      <label class="check">
+        <input type="checkbox" id="sensiveis"> Lida com dado sensível
+      </label>
+      <label class="check">
+        <input type="checkbox" id="wazuh"> Enviar ao Wazuh ao final
+      </label>
+
+      <button id="btn-scan" class="largura-total">Iniciar escaneamento</button>
+    </section>
+
+    <!-- Escaneamentos anteriores -->
+    <section class="card">
+      <h2>Escaneamentos</h2>
+      <div class="campo">
+        <select id="lista-scans"><option>—</option></select>
+      </div>
+      <button id="btn-recarregar" class="secundario largura-total">Atualizar lista</button>
+    </section>
+
+    <!-- Filtros -->
+    <section class="card">
+      <h2>Filtros</h2>
+      <div class="chips" id="filtro-prioridade">
+        <button class="chip" data-p="CRITICA" aria-pressed="false">Crítica</button>
+        <button class="chip" data-p="ALTA" aria-pressed="false">Alta</button>
+        <button class="chip" data-p="MEDIA" aria-pressed="false">Média</button>
+        <button class="chip" data-p="BAIXA" aria-pressed="false">Baixa</button>
+      </div>
+
+      <div class="campo" style="margin-top:.9rem">
+        <label for="filtro-ferramenta">Ferramenta</label>
+        <select id="filtro-ferramenta">
+          <option value="">Todas</option>
+          <option value="bandit">Bandit (SAST)</option>
+          <option value="trivy">Trivy (SCA)</option>
+          <option value="dast">OWASP ZAP (DAST)</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label for="filtro-busca">Buscar</label>
+        <input type="text" id="filtro-busca" placeholder="título ou descrição">
+      </div>
+    </section>
+  </aside>
+
+  <main>
+    <section class="card" id="progresso" hidden>
+      <div class="etapa">
+        <span class="fase" id="fase">na fila</span>
+        <span class="cont" id="contador"></span>
+      </div>
+      <div class="barra"><i id="barra-preenchida"></i></div>
+    </section>
+
+    <div class="tiles" id="tiles"></div>
+
+    <section class="card">
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Prioridade</th>
+              <th>Score</th>
+              <th>Vulnerabilidade</th>
+              <th>Origem</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-tabela"></tbody>
+        </table>
+      </div>
+      <div class="vazio" id="vazio">Nenhum escaneamento carregado. Inicie um ao lado.</div>
+    </section>
+  </main>
+
+</div>
+
+<!-- Detalhe do achado -->
+<div id="fundo"></div>
+<div id="gaveta" role="dialog" aria-modal="true" aria-labelledby="gaveta-titulo" aria-hidden="true">
+  <div class="gaveta-topo">
+    <h3 id="gaveta-titulo">—</h3>
+    <button class="secundario" id="btn-fechar" aria-label="Fechar">Fechar</button>
+  </div>
+  <div class="gaveta-corpo" id="gaveta-corpo"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -32,6 +32,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from orchestrator import (
@@ -421,3 +422,17 @@ def _resumo(scan_id: str) -> ResumoScan:
             por_prioridade=s.get("por_prioridade", {}),
             erro=s.get("erro"),
         )
+
+
+# ─────────────────────────────────────────────────────────────
+#  Interface web
+#
+#  Servida pela própria API, de propósito: uma origem só, sem CORS
+#  no caminho e um único comando para subir tudo. Precisa ficar no
+#  fim do arquivo — as rotas declaradas acima têm precedência sobre
+#  este mount na raiz.
+# ─────────────────────────────────────────────────────────────
+
+_WEB_DIR = BASE_DIR / "web"
+if _WEB_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=_WEB_DIR, html=True), name="web")

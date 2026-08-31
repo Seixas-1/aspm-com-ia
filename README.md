@@ -462,3 +462,51 @@ curl "http://localhost:8000/scans/a1b2c3d4e5f6/findings?prioridade=CRITICA&prior
 Os resultados ficam em memória e são gravados em `resultados/{scan_id}.json`,
 recarregados quando o servidor sobe. É proposital não haver banco de dados:
 para o escopo do projeto, arquivo resolve e mantém tudo inspecionável.
+
+## 15. Interface web (`web/`)
+
+HTML, CSS e JavaScript puros — **sem framework e sem build**. É servida pela
+própria FastAPI, então um comando sobe tudo:
+
+```bash
+uvicorn api:app --reload
+# painel:        http://localhost:8000
+# documentação:  http://localhost:8000/docs
+```
+
+Servir o front pela API é decisão de projeto, não preguiça: uma origem só,
+sem CORS no caminho, e nada de precisar subir um segundo servidor na hora
+da demonstração.
+
+### O que a tela faz
+
+- **Dispara escaneamentos** nos três modos (demo, diretório, DefectDojo),
+  com os interruptores de contexto que alimentam o Risk Agent — "exposto à
+  internet" e "lida com dado sensível".
+- **Acompanha o progresso** em tempo real: `coletando → analisando`, com o
+  contador de achados já processados vindo do `on_progress` da API.
+- **Contagem por severidade** em painéis no topo.
+- **Tabela priorizada**, com filtro por severidade, por ferramenta e busca
+  textual. Os filtros são aplicados **no servidor**, pela própria API — a tela
+  não filtra em memória.
+- **Detalhe de cada achado**, com a explicação e a remediação escritas pela IA.
+
+### A régua da trava
+
+No detalhe de cada achado há uma régua de 0 a 100 mostrando:
+
+- a **âncora** (`CVSS × 10`), como linha vertical;
+- a **faixa permitida** à IA (âncora ±25), em destaque;
+- **onde a IA pontuou**, como marcador colorido pela prioridade;
+- e o desvio em pontos, escrito por extenso.
+
+É a seção 12 deste README, visível achado por achado — a trava deixa de ser
+um parágrafo de documentação e vira algo que dá para apontar na tela.
+
+### Nota de segurança do próprio painel
+
+Títulos e descrições exibidos vêm dos scanners, ou seja, podem conter texto
+controlado por quem escreveu o código analisado. Por isso **todo conteúdo
+dinâmico é inserido via `textContent`** — o `app.js` não usa `innerHTML`,
+`insertAdjacentHTML` nem `document.write` em lugar nenhum. Um painel de
+segurança vulnerável a XSS seria uma ironia cara.
