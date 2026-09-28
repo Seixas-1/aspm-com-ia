@@ -1,7 +1,7 @@
 """
-Dashboard Final (slide 3/7 - último estágio do fluxo)
+Dashboard Final
 Interface web em Streamlit que exibe a fila de vulnerabilidades
-priorizadas pela IA, igual ao mockup do slide 5.
+priorizadas pela IA.
 
 Rodar: streamlit run dashboard.py
 """

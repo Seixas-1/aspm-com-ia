@@ -88,7 +88,7 @@ Retorne o JSON de avaliação de risco.
             score_final = max(0, min(100, max(score_base - 25, min(score_base + 25, score_ia))))
 
             if score_final != score_ia:
-                resultado["justificativa"] += (
+                resultado["justificativa"] = resultado.get("justificativa", "") + (
                     f" [ajustado de {int(score_ia)} para {int(score_final)} "
                     f"por exceder o limite de ±25 do CVSS base]"
                 )

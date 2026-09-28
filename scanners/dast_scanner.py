@@ -7,8 +7,8 @@ código e dependências sem executar nada.
 
 Pré-requisitos (gratuitos):
   1. Baixe e instale o OWASP ZAP: https://www.zaproxy.org/download/
-  2. Inicie em modo daemon com a API habilitada (porta 8090, não 8080 —
-     8080 já é usada pelo painel web do DefectDojo neste projeto):
+  2. Inicie em modo daemon com a API habilitada (porta 8090, não 8080/8085 —
+     essas costumam ser usadas pelo DefectDojo neste projeto):
        zap.sh -daemon -port 8090 -config api.disablekey=true      (Linux/Mac)
        zap.bat -daemon -port 8090 -config api.disablekey=true     (Windows)
      (Ou abra o ZAP Desktop normalmente — a API já roda junto por padrão.)
@@ -20,7 +20,7 @@ import os
 import time
 from zapv2 import ZAPv2
 
-# Porta configurável via .env (ZAP_PROXY), padrão 8090 pra não colidir com o DefectDojo (8080)
+# Porta configurável via .env (ZAP_PROXY), padrão 8090 pra não colidir com o DefectDojo
 ZAP_PROXY_PADRAO = os.getenv("ZAP_PROXY", "http://localhost:8090")
 
 RISCO_PARA_CVSS_ESTIMADO = {
@@ -78,18 +78,21 @@ def salvar_relatorio_zap(
     api_key: str | None = None,
 ) -> None:
     """
-    Salva o relatório OFICIAL do ZAP em JSON (via zap.core.jsonreport()),
-    no formato completo que integrações como o DefectDojo esperam —
-    diferente da lista simplificada de zap.core.alerts() usada em run_zap_scan().
+    Salva o relatório OFICIAL do ZAP em XML (via zap.core.xmlreport()).
+
+    IMPORTANTE: o parser "ZAP Scan" do DefectDojo exige o relatório em
+    XML, não em JSON — usar jsonreport() aqui causa erro 400
+    ("Wrong file format, please use xml") na hora de importar.
+
     Chame isso DEPOIS de um scan já ter rodado (via run_zap_scan).
+    Use extensão .xml no caminho_arquivo, por clareza.
     """
-    import json as json_lib
     from pathlib import Path
 
     zap = ZAPv2(apikey=api_key, proxies={"http": zap_proxy, "https": zap_proxy})
-    relatorio = zap.core.jsonreport()
+    relatorio = zap.core.xmlreport()
     Path(caminho_arquivo).write_text(relatorio, encoding="utf-8")
-    print(f"[zap] Relatório completo salvo em {caminho_arquivo}")
+    print(f"[zap] Relatório completo (XML) salvo em {caminho_arquivo}")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 """
 Agente de Correlação de Dados
-Converte os formatos distintos do Bandit e do Trivy em um
+Converte os formatos distintos do Bandit, Trivy, ZAP e DefectDojo em um
 schema único, para que os Agentes de IA processem tudo da mesma forma.
 
 Schema normalizado (dict):
 {
   "id": str,
-  "ferramenta": "bandit" | "trivy",
+  "ferramenta": "bandit" | "trivy" | "dast",
   "titulo": str,
   "descricao": str,
   "arquivo": str,

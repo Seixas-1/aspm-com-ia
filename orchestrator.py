@@ -1,7 +1,7 @@
 """
 Orquestrador Central
 Coordena o fluxo completo: Descoberta -> Scanners -> Normalização ->
-Agentes de IA -> Priorização -> Saída (+ opcionalmente -> Wazuh SIEM)
+Agentes de IA -> Priorização -> Saída (+ opcionalmente -> DefectDojo / Wazuh SIEM)
 
 Uso:
     python orchestrator.py --path ./meu_projeto
@@ -53,12 +53,12 @@ def coletar_via_defectdojo(target_path: str, dast_url: str | None = None) -> lis
         print("  Trivy não encontrado no PATH — pulando.")
 
     if dast_url:
-        print("[3/3] OWASP ZAP (DAST) -> relatório bruto -> DefectDojo...")
+        print("[3/3] OWASP ZAP (DAST) -> relatório bruto (XML) -> DefectDojo...")
         try:
             from scanners.dast_scanner import run_zap_scan, salvar_relatorio_zap
             run_zap_scan(dast_url)
-            salvar_relatorio_zap("tmp_scans/zap_raw.json")
-            resposta = importar_scan("tmp_scans/zap_raw.json", "ZAP Scan")
+            salvar_relatorio_zap("tmp_scans/zap_raw.xml")
+            resposta = importar_scan("tmp_scans/zap_raw.xml", "ZAP Scan")
             achados_dd += normalize_defectdojo(listar_findings(resposta["test"]), "dast")
         except Exception as e:
             print(f"  DAST via DefectDojo falhou: {e}")

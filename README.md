@@ -1,7 +1,9 @@
 # ASPM com IA — Tomahawks
 
-Implementação prática da arquitetura apresentada no Challenge Pride 2026:
-**Descoberta → Coleta → Correlação → Priorização com IA → Remediação → Dashboard**
+Projeto do Challenge Pride 2026 — FIAP, turma 1TDCPF. **MVP entregue na
+Sprint 4.** Implementação prática da arquitetura: **Descoberta → Coleta →
+Correlação → Priorização com IA → Remediação → Dashboard**, integrada a
+ferramentas reais de mercado (DefectDojo, Wazuh).
 
 > ### ⚠️ Aviso
 >
@@ -39,6 +41,16 @@ aspm_ia/
 
 ## 2. Instalação (tudo gratuito)
 
+Em Debian e derivados (Parrot OS incluso), os pré-requisitos de sistema:
+
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv git default-jre -y
+```
+
+O `default-jre` (Java) é necessário porque o **OWASP ZAP** roda sobre a JVM —
+sem ele, o passo do DAST (seção 6.1) não sobe.
+
 ```bash
 # 1. Crie um ambiente virtual
 python3 -m venv venv
@@ -48,8 +60,10 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 3. (Opcional, mas recomendado) instale o Trivy
-# Linux/Mac:
-curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+# Debian/Parrot:
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+sudo apt update && sudo apt install trivy -y
 # Windows: choco install trivy
 ```
 
@@ -132,8 +146,11 @@ python demo_app/app.py
 # acesse http://localhost:5000 para confirmar que subiu
 
 # Terminal 2: baixe e inicie o OWASP ZAP em modo daemon
-# (baixe em https://www.zaproxy.org/download/)
-zap.sh -daemon -port 8080 -config api.disablekey=true
+cd ~/Downloads
+wget https://github.com/zaproxy/zaproxy/releases/download/v2.17.0/ZAP_2.17.0_Linux.tar.gz
+tar -xvzf ZAP_2.17.0_Linux.tar.gz
+cd ZAP_2.17.0
+./zap.sh -daemon -port 8090 -config api.disablekey=true
 
 # Terminal 3: rode o orquestrador completo, incluindo DAST
 pip install python-owasp-zap-v2.4
@@ -141,9 +158,18 @@ python orchestrator.py --demo --dast-url http://localhost:5000
 # (troque --demo pelo --path do seu código quando for escanear um projeto real)
 ```
 
+> **Porta 8090, nunca 8080/8085** — essas duas costumam ser usadas pelo
+> DefectDojo (seção 9) neste projeto. Se subir o ZAP em 8080/8085 com o
+> DefectDojo já rodando, um dos dois vai falhar ao abrir a porta.
+
 O ZAP vai literalmente enviar payloads de ataque (ex: `<script>alert(1)</script>`
 no formulário de contato) contra a app rodando e reportar o que conseguiu
 explorar — isso é a diferença central para SAST/SCA, que nunca executam nada.
+
+Ao usar a flag `--defectdojo`, o relatório do ZAP é salvo e importado em
+**XML** (`tmp_scans/zap_raw.xml`), não em JSON — o parser "ZAP Scan" do
+DefectDojo exige esse formato. Isso já é automático, não precisa configurar
+nada; é só para não estranhar se olhar dentro de `tmp_scans/`.
 
 ## 7. Roteiro sugerido para a apresentação (live demo)
 
@@ -224,7 +250,8 @@ Acesse **http://localhost:8080**, login `admin` + a senha acima.
 ### Passo 3 — Gerar o token de API
 
 No DefectDojo, clique no seu usuário (canto superior direito) > **API v2
-Key**, copie o token.
+Key**, copie o token — **sem a palavra "Token" na frente**, só o valor
+depois dela (é um erro comum colar a linha inteira).
 
 ### Passo 4 — Configurar o `.env`
 
@@ -510,3 +537,20 @@ controlado por quem escreveu o código analisado. Por isso **todo conteúdo
 dinâmico é inserido via `textContent`** — o `app.js` não usa `innerHTML`,
 `insertAdjacentHTML` nem `document.write` em lugar nenhum. Um painel de
 segurança vulnerável a XSS seria uma ironia cara.
+
+## 16. Problemas comuns já resolvidos
+
+Erros reais que apareceram rodando o projeto num Debian/Parrot OS de verdade,
+e o que resolveu cada um. Confira aqui antes de abrir uma issue.
+
+| Sintoma | Causa | Solução |
+|---|---|---|
+| `python: comando não encontrado` | O venv não foi ativado | `source venv/bin/activate` (ou `.venv\Scripts\activate` no Windows) |
+| `ModuleNotFoundError` | Pacote não instalado *nesse* venv | Confirme que o venv está ativo, depois `pip install -r requirements.txt` |
+| ZAP: porta em uso | Conflito com o DefectDojo (8080/8085) | Suba o ZAP em `-port 8090`, nunca 8080/8085 |
+| Wazuh: versão do agente incompatível | Agente mais novo que o Manager | Instale a mesma versão do Manager: `apt-cache madison wazuh-agent` mostra as disponíveis |
+| Gemini: `404 model not found` | Nome de modelo descontinuado | Já resolvido — `agents/base_agent.py` usa `gemini-3.5-flash` / `gemini-3.1-flash-lite` |
+| Gemini: `429 RESOURCE_EXHAUSTED` | Limite do free tier (RPM) | Já tratado: `base_agent.py` reconhece o erro e espera com backoff automático antes de tentar de novo |
+| DefectDojo: `400 Bad Request` no import | Faltava `product_type_name` no payload | Já corrigido em `defectdojo_client.py` — o campo é obrigatório e sempre enviado |
+| DefectDojo: erro ao importar o scan do ZAP | O parser "ZAP Scan" exige XML, não JSON | Já corrigido: `dast_scanner.py` salva com `zap.core.xmlreport()`, e o orquestrador importa `zap_raw.xml` |
+| DefectDojo: token rejeitado | Colou a linha inteira, incluindo a palavra "Token" | Cole só o valor que vem depois de "Token " |

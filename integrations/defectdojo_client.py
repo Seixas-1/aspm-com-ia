@@ -17,7 +17,7 @@ Fluxo:
 Pré-requisitos:
   1. DefectDojo rodando (ver README, seção DefectDojo) — padrão: localhost:8080
   2. Token de API: no DefectDojo, clique no seu usuário (canto superior
-     direito) > API v2 Key, copie o token
+     direito) > API v2 Key, copie o token (SEM a palavra "Token" na frente)
   3. No .env:
        DEFECTDOJO_URL=http://localhost:8080/api/v2
        DEFECTDOJO_API_TOKEN=seu-token-aqui
@@ -40,15 +40,17 @@ def importar_scan(
     engagement_name: str = "Challenge Pride 2026",
 ) -> dict:
     """
-    Envia um relatório BRUTO de scanner (o arquivo JSON original, não a
+    Envia um relatório BRUTO de scanner (o arquivo JSON/XML original, não a
     lista já processada) pro DefectDojo via API de import.
 
     scan_type precisa ser um dos nomes reconhecidos pelo DefectDojo:
       'Bandit Scan', 'Trivy Scan', 'ZAP Scan'
+    IMPORTANTE: 'ZAP Scan' exige o arquivo em XML, não em JSON.
 
     Cria Produto/Engagement automaticamente se não existirem
-    (auto_create_context). Retorna a resposta da API — o campo "test"
-    é o ID usado depois em listar_findings().
+    (auto_create_context) — por isso o product_type_name é obrigatório.
+    Retorna a resposta da API — o campo "test" é o ID usado depois em
+    listar_findings().
     """
     if not TOKEN:
         raise RuntimeError("DEFECTDOJO_API_TOKEN não definido no .env")
