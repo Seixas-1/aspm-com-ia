@@ -1,9 +1,13 @@
 # ASPM com IA — Tomahawks
 
 Projeto do Challenge Pride 2026 — FIAP, turma 1TDCPF. **MVP entregue na
-Sprint 4.** Implementação prática da arquitetura: **Descoberta → Coleta →
-Correlação → Priorização com IA → Remediação → Dashboard**, integrada a
-ferramentas reais de mercado (DefectDojo, Wazuh).
+Sprint 4.** Guia comando por comando, do sistema zerado até o projeto
+funcionando por completo: 3 Agentes de IA (Gemini, Ollama local ou
+Anthropic), API HTTP própria, painel web, DefectDojo e Wazuh integrados.
+
+Sempre que um passo pedir `sudo`, digite a senha da sua conta quando
+solicitado. Sempre que um bloco pedir "venv ativado", confira se o
+início da linha do terminal mostra `(venv)` antes de continuar.
 
 > ### ⚠️ Aviso
 >
@@ -14,371 +18,656 @@ ferramentas reais de mercado (DefectDojo, Wazuh).
 > **Não faça deploy desta aplicação, não a exponha na internet e não
 > reaproveite esse código em produção.**
 
-## 1. O que cada arquivo faz
+## Estrutura
 
 ```
 aspm_ia/
-├── scanners/
-│   ├── bandit_scanner.py    # SAST gratuito (código Python)
-│   ├── trivy_scanner.py     # SCA gratuito (dependências/containers)
-│   ├── dast_scanner.py      # DAST gratuito (OWASP ZAP, ataca app rodando)
-│   └── nvd_lookup.py        # Enriquecimento com CVSS oficial (NVD, gratuito)
-├── agents/
-│   ├── risk_agent.py         # Pontua e prioriza (0-100)
-│   ├── explanation_agent.py  # Explica em linguagem natural
-│   └── remediation_agent.py  # Sugere correção técnica
-├── integrations/
-│   ├── wazuh_forwarder.py    # Envia achados como alertas ao Wazuh SIEM
-│   ├── wazuh_rules.xml       # Regras a colar no Manager do Wazuh
-│   └── defectdojo_client.py  # Import/leitura/anotação de Findings no DefectDojo
-├── demo_app/app.py            # App propositalmente vulnerável (alvo do DAST)
-├── normalizer.py              # Unifica formatos diferentes num schema só
-├── orchestrator.py            # Amarra tudo (é o que você roda)
-├── dashboard.py                # Interface Streamlit
-├── verificar_chave.py          # Testa a chave de IA isoladamente
+├── scanners/          # Bandit (SAST), Trivy (SCA), ZAP (DAST), NVD
+├── agents/            # Risk, Explanation e Remediation Agents (IA)
+├── integrations/       # DefectDojo e Wazuh
+├── demo_app/            # App propositalmente vulnerável (alvo do DAST)
+├── web/                  # Painel web (HTML/CSS/JS puro)
+├── normalizer.py          # Unifica os formatos num schema único
+├── orchestrator.py        # Coordena o fluxo inteiro (CLI)
+├── api.py                  # Expõe o mesmo fluxo como API HTTP (FastAPI)
+├── dashboard.py              # Interface Streamlit (alternativa ao painel web)
+├── verificar_chave.py        # Testa o provedor de IA isoladamente
 └── sample_data/                # Dados de teste (não precisa scanner instalado)
 ```
 
-## 2. Instalação (tudo gratuito)
+---
 
-Em Debian e derivados (Parrot OS incluso), os pré-requisitos de sistema:
+## Parte 1 — Pacotes de sistema
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-pip python3-venv git default-jre -y
 ```
-
-O `default-jre` (Java) é necessário porque o **OWASP ZAP** roda sobre a JVM —
-sem ele, o passo do DAST (seção 6.1) não sobe.
+Atualiza a lista de programas disponíveis para instalação.
 
 ```bash
-# 1. Crie um ambiente virtual
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-# 2. Instale as dependências Python
-pip install -r requirements.txt
-
-# 3. (Opcional, mas recomendado) instale o Trivy
-# Debian/Parrot:
-wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-sudo apt update && sudo apt install trivy -y
-# Windows: choco install trivy
+sudo apt install python3 python3-pip python3-venv git default-jre -y
 ```
+Instala: o Python 3, o gerenciador de pacotes do Python (`pip`), a
+ferramenta de ambientes virtuais (`venv`), o Git (para lidar com
+repositórios) e o Java (exigido pelo OWASP ZAP mais à frente).
 
-Bandit já vem no `requirements.txt` (é uma lib Python pura).
+```bash
+python3 --version
+```
+Confirma a instalação. Deve responder `Python 3.10` ou superior.
 
-## 3. Configure a chave da IA (opção gratuita)
+---
 
-O projeto usa o **Google Gemini** por padrão — tem nível gratuito real, sem
-cartão de crédito.
+## Parte 2 — Ambiente virtual do projeto
+
+```bash
+cd ~/FIAP/aspm_ia
+```
+Entra na pasta do projeto. Ajuste o caminho se a sua pasta for diferente.
+
+```bash
+python3 -m venv venv
+```
+Cria um ambiente virtual chamado `venv` — um Python isolado só para
+este projeto, sem misturar com pacotes do sistema.
+
+```bash
+source venv/bin/activate
+```
+Ativa o ambiente virtual. **Esse comando precisa ser repetido em todo
+terminal novo que for rodar algo do projeto.**
+
+```bash
+pip install -r requirements.txt
+```
+Instala todas as bibliotecas Python que o projeto usa, de uma vez,
+lendo a lista do arquivo `requirements.txt`.
+
+---
+
+## Parte 3 — Chave da IA (Gemini, gratuita)
+
+1. Acesse **https://aistudio.google.com/apikey** no navegador.
+2. Faça login com uma conta Google.
+3. Clique em **"Create API key"**.
+4. Copie a chave gerada (uma string começando com `AIzaSy...`).
 
 ```bash
 cp .env.example .env
 ```
+Cria o arquivo de configuração real (`.env`) a partir do modelo
+(`.env.example`).
 
-1. Acesse **https://aistudio.google.com/apikey**
-2. Faça login com uma conta Google
-3. Clique em **"Create API key"**
-4. Copie a chave e cole no `.env`:
-
+```bash
+nano .env
+```
+Abre o arquivo para edição. Deixe assim, colando sua chave real:
 ```
 AI_PROVIDER=gemini
-GEMINI_API_KEY=sua-chave-aqui
+GEMINI_API_KEY=AIzaSy...sua-chave-aqui
 ```
+Para salvar no `nano`: `Ctrl+O`, depois `Enter`, depois `Ctrl+X`.
 
-Limites do nível gratuito (mais que suficiente para o volume de achados
-do projeto): poucas dezenas de requisições por minuto e centenas por dia,
-dependendo do modelo. Se um dia vocês quiserem usar a API paga da Anthropic
-em vez disso, é só trocar `AI_PROVIDER=anthropic` e preencher
-`ANTHROPIC_API_KEY` — o resto do código não muda nada, a troca de motor
-de IA é transparente para os 3 agentes.
+```bash
+python verificar_chave.py
+```
+Testa o provedor configurado isoladamente, sem rodar o projeto
+inteiro. Precisa aparecer `✅ Gemini respondeu: OK`.
 
-## 4. Teste rápido, sem precisar escanear nada ainda
+### Parte 3.1 — Alternativa: IA local com Ollama (offline, sem chave)
+
+Se preferir rodar os 3 Agentes sem depender de internet nem de
+cadastro — útil também como plano B se a cota gratuita do Gemini
+esgotar em pleno ensaio da apresentação:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+Instala o Ollama no sistema.
+
+```bash
+sudo systemctl enable ollama
+sudo systemctl start ollama
+```
+Garante que o serviço sobe sozinho e já está rodando.
+
+```bash
+ollama pull llama3.1:8b
+```
+Baixa o modelo usado por padrão pelo projeto (uns 4–5 GB; a primeira
+resposta depois do download também demora, porque o modelo precisa
+carregar na memória).
+
+```bash
+nano .env
+```
+Troque a primeira linha:
+```
+AI_PROVIDER=ollama
+```
+As variáveis `OLLAMA_URL`, `OLLAMA_MODEL` e `OLLAMA_TIMEOUT` já vêm
+com valor padrão no `.env.example` — só mude se usar outro modelo ou
+outra porta.
+
+```bash
+python verificar_chave.py
+```
+Com `AI_PROVIDER=ollama`, este mesmo comando confere se o serviço está
+de pé, se o modelo foi baixado, e testa uma resposta de verdade.
+
+> Rodando em CPU (sem placa de vídeo dedicada), cada achado pode levar
+> de 10 segundos a 1 minuto para ser analisado pelos 3 Agentes — é
+> normal, e o `OLLAMA_TIMEOUT` já vem generoso por causa disso.
+
+---
+
+## Parte 4 — Primeiro teste, sem scanners
 
 ```bash
 python orchestrator.py --demo
-streamlit run dashboard.py
 ```
-
-Isso roda os 3 agentes de IA sobre os 4 achados de exemplo (os mesmos da
-tabela do slide 5 da apresentação) e abre o dashboard no navegador.
-
-## 5. Rodando em um projeto real
+Roda o pipeline inteiro (Risk Agent, Explanation Agent, Remediation
+Agent) usando 4 vulnerabilidades de exemplo já prontas, sem precisar
+de nenhum scanner instalado ainda. A primeira linha impressa confirma
+qual provedor de IA está em uso. Ao final, cria o arquivo
+`resultado.json`.
 
 ```bash
-python orchestrator.py --path /caminho/do/seu/projeto --exposto-internet --dados-sensiveis
 streamlit run dashboard.py
 ```
+Abre o dashboard no navegador (`http://localhost:8501`), mostrando a
+tabela de vulnerabilidades priorizadas pela IA. Pressione `Ctrl+C` no
+terminal para encerrar quando quiser sair.
 
-As flags `--exposto-internet` e `--dados-sensiveis` alimentam o contexto
-que o Risk Agent usa para ajustar o score além do CVSS puro — é a parte
-que diferencia ASPM de "só rodar um scanner".
+> Alternativa: a **Parte 11** deste guia mostra como subir a API HTTP
+> e o painel web novo (`http://localhost:8000`), que substitui este
+> dashboard com filtros, progresso em tempo real e o detalhe visual da
+> trava de ±25 em cada achado.
 
-## 6. Quer rodar 100% offline, sem nenhuma API externa?
+---
 
-O padrão do projeto (Gemini) já é gratuito, mas se quiser rodar sem
-depender de internet para os agentes de IA, dá pra usar um modelo local:
-
-**Ollama (roda inteiramente na sua máquina):**
-1. Instale o Ollama (ollama.com) e baixe um modelo, ex: `ollama pull llama3.1`
-2. Adicione um novo bloco `elif PROVIDER == "ollama":` em
-   `agents/base_agent.py`, chamando `http://localhost:11434/api/chat` — a
-   estrutura dos agentes (prompts, parsing de JSON) continua idêntica, só
-   muda o método `_call_ia`.
-
-Repare que essa é uma opção adicional para quem quer zero dependência de
-internet — o Gemini gratuito já resolve o requisito de custo.
-
-O resto do pipeline (Bandit, Trivy, NVD, normalizador, dashboard) já é
-gratuito e não muda nada.
-
-## 6.1 Rodando o DAST (OWASP ZAP)
-
-O DAST é diferente dos outros dois: ele ataca uma **aplicação rodando de verdade**,
-não só lê arquivos. Passos:
+## Parte 5 — Trivy (SCA)
 
 ```bash
-# Terminal 1: suba a app vulnerável de demonstração
-pip install flask
-python demo_app/app.py
-# acesse http://localhost:5000 para confirmar que subiu
+sudo apt install wget gnupg -y
+```
+Instala ferramentas usadas para baixar e validar o pacote do Trivy.
 
-# Terminal 2: baixe e inicie o OWASP ZAP em modo daemon
+```bash
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+```
+Baixa a chave de assinatura oficial do Trivy e a converte para o
+formato que o `apt` entende.
+
+```bash
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+```
+Registra o repositório oficial do Trivy no sistema. O nome `generic`
+funciona em qualquer distribuição baseada em Debian — em alguns
+sistemas, usar o codinome da versão (ex: `noble`, `bookworm`) causa
+erro 404, por isso `generic` é o mais seguro.
+
+Se o seu sistema já tiver um `trivy` de outra origem instalado (por
+exemplo, vindo direto da distribuição), garanta que o pacote oficial
+seja o escolhido:
+```bash
+sudo tee /etc/apt/preferences.d/trivy-aqua > /dev/null <<'EOF'
+Package: trivy
+Pin: origin aquasecurity.github.io
+Pin-Priority: 1001
+EOF
+```
+Isso diz ao `apt` para sempre preferir o Trivy vindo do repositório
+oficial da Aqua Security, mesmo que exista outro pacote com prioridade
+alta.
+
+```bash
+sudo apt update
+sudo apt install trivy -y
+```
+Atualiza a lista de pacotes (agora incluindo o repositório novo) e
+instala o Trivy.
+
+```bash
+trivy --version
+```
+Confirma a instalação, mostrando o número da versão.
+
+---
+
+## Parte 6 — OWASP ZAP (DAST)
+
+```bash
 cd ~/Downloads
-wget https://github.com/zaproxy/zaproxy/releases/download/v2.17.0/ZAP_2.17.0_Linux.tar.gz
-tar -xvzf ZAP_2.17.0_Linux.tar.gz
-cd ZAP_2.17.0
-./zap.sh -daemon -port 8090 -config api.disablekey=true
-
-# Terminal 3: rode o orquestrador completo, incluindo DAST
-pip install python-owasp-zap-v2.4
-python orchestrator.py --demo --dast-url http://localhost:5000
-# (troque --demo pelo --path do seu código quando for escanear um projeto real)
 ```
+Entra na pasta de downloads (pode ser qualquer pasta de sua escolha).
 
-> **Porta 8090, nunca 8080/8085** — essas duas costumam ser usadas pelo
-> DefectDojo (seção 9) neste projeto. Se subir o ZAP em 8080/8085 com o
-> DefectDojo já rodando, um dos dois vai falhar ao abrir a porta.
+```bash
+wget https://github.com/zaproxy/zaproxy/releases/download/v2.17.0/ZAP_2.17.0_Linux.tar.gz
+```
+Baixa o instalador do ZAP.
 
-O ZAP vai literalmente enviar payloads de ataque (ex: `<script>alert(1)</script>`
-no formulário de contato) contra a app rodando e reportar o que conseguiu
-explorar — isso é a diferença central para SAST/SCA, que nunca executam nada.
+```bash
+tar -xvzf ZAP_2.17.0_Linux.tar.gz
+```
+Extrai o arquivo baixado.
 
-Ao usar a flag `--defectdojo`, o relatório do ZAP é salvo e importado em
-**XML** (`tmp_scans/zap_raw.xml`), não em JSON — o parser "ZAP Scan" do
-DefectDojo exige esse formato. Isso já é automático, não precisa configurar
-nada; é só para não estranhar se olhar dentro de `tmp_scans/`.
+```bash
+cd ZAP_2.17.0
+```
+Entra na pasta extraída.
 
-## 7. Roteiro sugerido para a apresentação (live demo)
+```bash
+./zap.sh -daemon -port 8090 -config api.disablekey=true
+```
+Inicia o ZAP em modo daemon (sem interface gráfica, pronto para ser
+controlado por código), na porta 8090. Essa porta específica evita
+conflito com o DefectDojo, que usa 8080 ou 8085. Deixe este terminal
+aberto rodando — ele não deve ser fechado enquanto o ZAP for usado.
 
-Ordem que conta a história completa do ASPM na prática, ~8-10 min:
+Ao escanear com a flag `--defectdojo` (Parte 8), o relatório do ZAP é
+salvo e importado em **XML** — o parser "ZAP Scan" do DefectDojo exige
+esse formato. Isso já é automático, não precisa configurar nada.
 
-1. **(1 min) Contexto:** relembre o problema (slide 2) — alertas espalhados,
-   sem correlação, sem priorização.
-2. **(1 min) Mostre a app vulnerável rodando** (`demo_app/app.py`) e explique
-   rapidamente as 2-3 falhas propositais no código.
-3. **(2 min) Explique as 3 fontes de dado, com uma frase de diferença cada:**
-   - *SAST (Bandit)* — "lê o código sem executar, acha falhas de lógica"
-   - *SCA (Trivy)* — "compara nossas bibliotecas com bases de CVE conhecidas"
-   - *DAST (OWASP ZAP)* — "ataca a aplicação rodando, como um invasor real faria"
-4. **(2-3 min) Rode o `orchestrator.py --dast-url ...` ao vivo**, mostrando no
-   terminal os 4 passos (Descoberta → Scanners → Normalização → Agentes de IA).
-5. **(2 min) Abra o dashboard** (`streamlit run dashboard.py`) e mostre a fila
-   já priorizada, com a explicação e remediação geradas pela IA para o item
-   crítico.
-6. **(1 min) Feche com o roadmap** (slide 8: FastAPI, mais scanners, etc.)
+---
 
-Dica: se o ZAP demorar demais ao vivo (scan ativo pode levar minutos), rode
-antes da apresentação e tenha o `resultado.json` pronto como plano B —
-mostre o comando rodando por alguns segundos pra dar credibilidade e depois
-troque para o resultado já pronto, sendo transparente sobre isso se perguntarem.
-
-## 8. Próximos passos sugeridos (alinhados com o slide 8)
-
-1. Empacotar o `orchestrator.py` como API FastAPI (endpoint `/scan`)
-2. Adicionar Semgrep e OWASP ZAP como novas fontes no normalizador
-3. Persistir o histórico de scans (SQLite é suficiente para o MVP)
-4. Adicionar autenticação por API key no dashboard/API
-
-## 9. Integração com DefectDojo (ingestão/dedup profissional, opcional)
-
-O DefectDojo é o projeto flagship da OWASP pra gestão de vulnerabilidades.
-Com a flag `--defectdojo`, ele substitui nosso `normalizer.py` na parte de
-ingestão e deduplicação — os scanners continuam sendo os mesmos (Bandit,
-Trivy, ZAP), só que o parsing/dedup passa a ser feito pelo DefectDojo, e
-nossos 3 Agentes de IA continuam fazendo a parte que ele não faz: pontuar
-com contexto, explicar e sugerir remediação. O resultado da IA volta pro
-DefectDojo como nota + tag em cada achado.
-
-**Isso é opcional** — sem a flag `--defectdojo`, tudo continua funcionando
-exatamente como antes, com nosso normalizer próprio.
-
-### Passo 1 — Instalar Docker (se ainda não tiver)
+## Parte 7 — Docker
 
 ```bash
 sudo apt install ca-certificates curl gnupg -y
+```
+Instala pré-requisitos para adicionar o repositório do Docker com
+segurança.
+
+```bash
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+```
+Cria a pasta onde a chave de assinatura do Docker será guardada.
+
+```bash
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
+```
+Baixa e prepara a chave oficial do Docker.
+
+```bash
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
+Garante que todos os usuários do sistema possam ler essa chave.
+
+```bash
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian trixie stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
+Registra o repositório do Docker. O nome `trixie` corresponde ao
+Debian 13. Em distribuições derivadas do Debian, o comando automático
+para descobrir esse nome costuma devolver um valor que não existe no
+repositório do Docker — por isso o nome é escrito direto aqui. Se o
+seu sistema for baseado em outra versão do Debian, troque `trixie`
+pelo codinome correspondente.
+
+```bash
 sudo apt update
 sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+```
+Atualiza a lista de pacotes e instala o Docker e o plugin do
+`docker compose`.
+
+```bash
 sudo usermod -aG docker $USER
 ```
-Feche e abra o terminal de novo (pra aplicar o grupo `docker`).
+Adiciona seu usuário ao grupo `docker`, permitindo rodar comandos
+Docker sem precisar de `sudo` toda vez.
 
-### Passo 2 — Instalar e subir o DefectDojo
+**Feche a sessão e entre de novo (ou reinicie)** para essa mudança de
+grupo valer. Depois, confirme:
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+## Parte 8 — DefectDojo
 
 ```bash
 git clone https://github.com/DefectDojo/django-DefectDojo.git ~/DefectDojo
+```
+Baixa o código do DefectDojo para dentro da sua pasta pessoal.
+
+```bash
 cd ~/DefectDojo
+```
+Entra na pasta baixada.
+
+```bash
 docker compose build
+```
+Monta as imagens Docker do DefectDojo a partir do código-fonte. Pode
+demorar alguns minutos.
+
+```bash
 docker compose up -d
 ```
-A primeira subida demora (o "initializer" pode levar até 3 min). Pra ver
-a senha de admin gerada automaticamente:
+Sobe todos os serviços do DefectDojo (banco de dados, aplicação web,
+etc.) em segundo plano.
+
 ```bash
 docker compose logs initializer | grep "Admin password:"
 ```
-Acesse **http://localhost:8080**, login `admin` + a senha acima.
+Mostra a senha de administrador gerada automaticamente na primeira
+inicialização. Copie e guarde essa senha.
 
-### Passo 3 — Gerar o token de API
+Acesse **http://localhost:8080** no navegador e faça login com o
+usuário `admin` e a senha copiada.
 
-No DefectDojo, clique no seu usuário (canto superior direito) > **API v2
-Key**, copie o token — **sem a palavra "Token" na frente**, só o valor
-depois dela (é um erro comum colar a linha inteira).
+No painel: clique no seu usuário (canto superior direito), depois em
+**API v2 Key**, e copie o token mostrado — apenas a sequência de
+caracteres, **sem** a palavra "Token" na frente.
 
-### Passo 4 — Configurar o `.env`
-
+```bash
+cd ~/FIAP/aspm_ia
+nano .env
+```
+Adicione estas linhas, com o token real:
 ```
 DEFECTDOJO_URL=http://localhost:8080/api/v2
-DEFECTDOJO_API_TOKEN=cole-o-token-aqui
-DEFECTDOJO_PRODUCT_NAME=ASPM com IA - Tomahawks
+DEFECTDOJO_API_TOKEN=seu-token-aqui
+DEFECTDOJO_PRODUCT_TYPE_NAME=Challenge Pride 2026
 ```
-
-### Passo 5 — Rodar com a integração ativa
 
 ```bash
-python orchestrator.py --path /caminho/do/codigo --dast-url http://localhost:5000 --defectdojo
+source venv/bin/activate
+python integrations/testar_defectdojo.py
 ```
+Roda um teste isolado: escaneia a pasta `demo_app` com o Bandit,
+envia o resultado para o DefectDojo e confirma se os achados voltaram.
+Precisa aparecer `✅ ... Finding(s) retornado(s)`.
 
-Depois, no painel do DefectDojo (**Products > ASPM com IA - Tomahawks**),
-confira os Findings importados — cada um com nossa nota de IA (score,
-explicação, remediação) e uma tag `ia-critica`/`ia-alta`/etc.
+---
 
-## 10. Integração com Wazuh (SIEM)
+## Parte 9 — Wazuh (SIEM)
 
-Isso conecta os achados priorizados ao seu Wazuh, fazendo-os aparecerem
-como **alertas reais** no painel — não só na tabela do Streamlit.
+### 9.1 — No Manager (VM ou outra máquina)
 
-**Como funciona:** o `orchestrator.py`, com a flag `--wazuh`, escreve os
-achados (score >= 40) como eventos JSON em `~/aspm_wazuh_alerts.json`. O
-Agente do Wazuh (rodando nesta máquina) monitora esse arquivo e envia pro
-Manager, que usa regras customizadas para classificar por prioridade.
-
-### Passo 0 — Confirme se o Agente já está instalado nesta máquina
-
-Como o Manager/Dashboard do Wazuh está numa VM separada, esta máquina
-Debian provavelmente ainda não tem o Agente. Confira:
-
+Confirme a versão instalada nessa máquina:
 ```bash
-sudo systemctl status wazuh-agent
+sudo /var/ossec/bin/wazuh-control info
 ```
+Anote o número mostrado (ex: `4.14.0`).
 
-Se aparecer `Unit wazuh-agent.service could not be found`, precisa
-instalar (Passo 1). Se já existir e estiver rodando, pule pro Passo 1b.
-
-### Passo 1 — Instalar e enrolar o Agente nesta máquina (aponta pro Manager remoto)
+### 9.2 — No Parrot/Debian, instalar o Agente na mesma versão
 
 ```bash
 sudo apt-get install gnupg apt-transport-https -y
+```
+Instala pré-requisitos.
+
+```bash
 curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+```
+Baixa e importa a chave oficial do Wazuh.
+
+```bash
 sudo chmod 644 /usr/share/keyrings/wazuh.gpg
+```
+Ajusta a permissão da chave para leitura geral.
+
+```bash
 echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee -a /etc/apt/sources.list.d/wazuh.list
+```
+Registra o repositório do Wazuh.
+
+```bash
 sudo apt-get update
+```
+Atualiza a lista de pacotes.
 
-# Troque pelo IP real da VM do Wazuh Manager
-WAZUH_MANAGER="IP_DA_VM_WAZUH" sudo -E apt-get install wazuh-agent -y
+```bash
+apt-cache madison wazuh-agent
+```
+Lista as versões disponíveis do agente. Confira o número exato que
+bate com a versão do Manager, anotada no passo 9.1.
 
-sudo systemctl daemon-reload
+```bash
+WAZUH_MANAGER="IP_DO_MANAGER" sudo -E apt-get install wazuh-agent=VERSAO-1 -y
+```
+Instala o agente já configurado para apontar para o Manager. Troque
+`IP_DO_MANAGER` pelo IP real, e `VERSAO-1` pela versão exata (ex:
+`4.14.0-1`).
+
+```bash
+sudo apt-mark hold wazuh-agent
+```
+Impede que uma atualização futura do sistema troque a versão do
+agente sem querer, o que quebraria a conexão com o Manager.
+
+```bash
 sudo systemctl enable wazuh-agent
 sudo systemctl start wazuh-agent
 ```
+Configura o agente para iniciar automaticamente e o inicia agora.
 
-Confirme que conectou:
 ```bash
 sudo tail -20 /var/ossec/logs/ossec.log
 ```
-Procure por uma linha `Connected to the manager`. Se não aparecer,
-normalmente é rede: confirme que dá `ping IP_DA_VM_WAZUH` desta máquina, e
-que as portas **1514** e **1515** estão abertas entre elas.
+Mostra as últimas linhas do log do agente. Procure pela frase
+`Connected to the manager`.
 
-> **Se a "VM separada" for uma VM local (VirtualBox, por exemplo):** o modo
-> de rede importa. Em modo **NAT** (padrão do VirtualBox), o host geralmente
-> não alcança a VM diretamente — prefira **Bridged Adapter** ou **Host-only
-> Adapter** pra essa comunicação funcionar sem redirecionamento de porta.
+### 9.3 — Configurar o que o agente vai vigiar
 
-### Passo 1b — Configurar o log que o Agente vai monitorar
-
-Edite `/var/ossec/etc/ossec.conf` (precisa de `sudo`) e adicione, dentro
-da tag `<ossec_config>`:
-
+```bash
+sudo nano /var/ossec/etc/ossec.conf
+```
+Adicione, dentro da tag `<ossec_config>`:
 ```xml
 <localfile>
   <log_format>json</log_format>
   <location>/home/SEU_USUARIO/aspm_wazuh_alerts.json</location>
 </localfile>
 ```
-
-Troque `SEU_USUARIO` pelo seu usuário real (rode `echo $HOME` se tiver
-dúvida). Depois reinicie o agente:
+Troque `SEU_USUARIO` pelo valor real (confira com `echo $HOME`).
 
 ```bash
 sudo systemctl restart wazuh-agent
 ```
+Reinicia o agente para aplicar a mudança.
 
-### Passo 2 — No Manager do Wazuh (na VM separada)
+### 9.4 — Regras customizadas (no Manager)
 
-Abra `/var/ossec/etc/rules/local_rules.xml` (no servidor/Manager — pode
-ser a mesma máquina ou outra, dependendo de como seu lab está montado) e
-cole o conteúdo de `integrations/wazuh_rules.xml` deste projeto — sem
-apagar o que já existir no arquivo. Depois reinicie o manager:
+```bash
+sudo nano /var/ossec/etc/rules/local_rules.xml
+```
+Cole o conteúdo do arquivo `integrations/wazuh_rules.xml`, deste
+projeto, sem apagar o que já existir no arquivo.
 
 ```bash
 sudo systemctl restart wazuh-manager
 ```
+Reinicia o Manager para aplicar as novas regras.
 
-### Passo 3 — Testar
+---
 
+## Parte 10 — Rodar tudo junto
+
+**Terminal 1 — app vulnerável de demonstração:**
 ```bash
-python integrations/wazuh_forwarder.py   # escreve 1 evento de teste isolado
+cd ~/FIAP/aspm_ia
+source venv/bin/activate
+python demo_app/app.py
+```
+Deixe rodando. Confirme em `http://localhost:5000`.
+
+**Terminal 2 — OWASP ZAP** (se ainda não estiver rodando da Parte 6):
+```bash
+cd ~/Downloads/ZAP_2.17.0
+./zap.sh -daemon -port 8090 -config api.disablekey=true
 ```
 
-Depois rode o pipeline completo já enviando pro Wazuh:
+**Terminal 3 — orquestrador e dashboard:**
+```bash
+cd ~/FIAP/aspm_ia
+source venv/bin/activate
+python orchestrator.py --path demo_app --dast-url http://localhost:5000 --exposto-internet --dados-sensiveis --wazuh --defectdojo
+```
+Executa o fluxo inteiro: escaneia com Bandit, Trivy e ZAP, envia os
+achados brutos para o DefectDojo, analisa cada um com os 3 Agentes de
+IA, grava o resultado, anota de volta no DefectDojo e envia os
+achados relevantes para o Wazuh.
 
 ```bash
-python orchestrator.py --demo --dast-url http://localhost:5000 --exposto-internet --dados-sensiveis --wazuh
+streamlit run dashboard.py
+```
+Abre o dashboard local com o resultado final. (Ou, em vez disso, suba
+a API e o painel web novo — Parte 11.)
+
+---
+
+## Onde conferir o resultado
+
+| Painel | Endereço |
+|---|---|
+| Painel web + API (FastAPI) | `http://localhost:8000` |
+| Dashboard Streamlit (alternativa) | `http://localhost:8501` |
+| DefectDojo | `http://localhost:8080` |
+| Wazuh | `https://IP_DO_MANAGER` |
+
+---
+
+## Tabela de referência rápida — comandos do dia a dia
+
+| Ação | Comando |
+|---|---|
+| Ativar o ambiente virtual | `source venv/bin/activate` |
+| Testar o provedor de IA configurado | `python verificar_chave.py` |
+| Rodar com dados de exemplo | `python orchestrator.py --demo` |
+| Rodar o fluxo completo | `python orchestrator.py --path demo_app --dast-url http://localhost:5000 --exposto-internet --dados-sensiveis --wazuh --defectdojo` |
+| Abrir o dashboard Streamlit | `streamlit run dashboard.py` |
+| Subir a API + painel web | `uvicorn api:app --reload` |
+| Reinstalar dependências | `pip install -r requirements.txt` |
+
+---
+
+## Parte 11 — API HTTP e painel web
+
+`api.py` expõe o mesmo pipeline do `orchestrator.py` como serviço, para
+que qualquer cliente — o painel web, outra ferramenta, a própria CI —
+consuma o motor pela rede. A camada **não reimplementa nada**: importa
+`coletar_achados`, `coletar_via_defectdojo` e `processar_com_agentes`
+do orquestrador. A linha de comando (Partes 1–10) continua funcionando
+exatamente como antes, sem depender da API.
+
+```bash
+uvicorn api:app --reload
+```
+Sobe os dois juntos, numa origem só (sem CORS no caminho):
+- Painel: `http://localhost:8000`
+- Documentação interativa (Swagger): `http://localhost:8000/docs`
+
+### Endpoints
+
+| Método | Rota | Para quê |
+|---|---|---|
+| `GET` | `/health` | Serviço de pé, provedor de IA e se a chave está configurada |
+| `POST` | `/scans` | Dispara um escaneamento. Devolve `scan_id` na hora (202) |
+| `GET` | `/scans` | Lista os escaneamentos, mais recente primeiro |
+| `GET` | `/scans/{id}` | Status, progresso e contagem por prioridade |
+| `GET` | `/scans/{id}/findings` | Achados, com filtros — alimenta a tabela do painel |
+| `GET` | `/scans/{id}/findings/{fid}` | Um achado, com explicação e remediação da IA |
+| `DELETE` | `/scans/{id}` | Remove o escaneamento e seu arquivo de resultado |
+
+Filtros de `/findings`: `prioridade` (repetível), `ferramenta`, `score_min`
+e `busca` (texto livre em título e descrição).
+
+### Escaneamentos são assíncronos
+
+Um scan real leva minutos — scanners e uma chamada de IA por achado. Então o
+`POST /scans` responde **202 Accepted** imediatamente com o `scan_id`, e o
+cliente acompanha:
+
+```
+na_fila → coletando → analisando → concluido
+                          ↑
+              progresso: {analisados, total}
 ```
 
-No painel do Wazuh, vá em **Módulos > Eventos de segurança** (ou pesquise
-pelo grupo de regra `aspm`) — os achados CRÍTICA/ALTA/MÉDIA devem aparecer
-como alertas, com a descrição já incluindo o título da vulnerabilidade.
+O campo `progresso` existe porque `processar_com_agentes` aceita um callback
+opcional `on_progress(analisados, total)`. Quem não passa o callback — o CLI —
+não muda em nada.
 
-## 11. Cuidados de segurança já implementados
+Com `AI_PROVIDER=ollama`, o campo `variavel_esperada` de `/health` vem
+`null` e `chave_configurada` vem sempre `true` — o Ollama não usa chave.
 
-- **Trava de ±25 no score da IA** (`risk_agent.py`) — ver seção 12 abaixo.
-- Sanitização de texto antes de qualquer chamada aos agentes de IA
-  (`BaseAgent.sanitize`), reduzindo risco de prompt injection vindo de
-  descrições de vulnerabilidades controláveis por atacante.
-- Fallback determinístico no Risk Agent caso a API de IA falhe.
-- `.env` fora do controle de versão (já coberto pelo `.gitignore`).
+### Exemplo
 
-## 12. A trava de ±25 pontos
+```bash
+# dispara em modo demo (não precisa de scanner instalado)
+curl -X POST http://localhost:8000/scans \
+  -H "Content-Type: application/json" \
+  -d '{"modo":"demo","exposto_internet":true,"dados_sensiveis":true}'
+# -> {"scan_id":"a1b2c3d4e5f6","status":"na_fila",...}
+
+# acompanha
+curl http://localhost:8000/scans/a1b2c3d4e5f6
+
+# só o que é crítico ou alto
+curl "http://localhost:8000/scans/a1b2c3d4e5f6/findings?prioridade=CRITICA&prioridade=ALTA"
+```
+
+### Persistência
+
+Os resultados ficam em memória e são gravados em `resultados/{scan_id}.json`,
+recarregados quando o servidor sobe. É proposital não haver banco de dados:
+para o escopo do projeto, arquivo resolve e mantém tudo inspecionável.
+
+### O painel web (`web/`)
+
+HTML, CSS e JavaScript puros — **sem framework e sem build**. Servido
+pela própria FastAPI (por isso um comando só sobe os dois).
+
+O que a tela faz:
+
+- **Dispara escaneamentos** nos três modos (demo, diretório, DefectDojo),
+  com os interruptores de contexto que alimentam o Risk Agent — "exposto à
+  internet" e "lida com dado sensível".
+- **Acompanha o progresso** em tempo real: `coletando → analisando`, com o
+  contador de achados já processados vindo do `on_progress` da API.
+- **Contagem por severidade** em painéis no topo.
+- **Tabela priorizada**, com filtro por severidade, por ferramenta e busca
+  textual. Os filtros são aplicados **no servidor**, pela própria API — a tela
+  não filtra em memória.
+- **Detalhe de cada achado**, com a explicação e a remediação escritas pela IA.
+
+No detalhe de cada achado há uma **régua de 0 a 100** mostrando:
+
+- a **âncora** (`CVSS × 10`), como linha vertical;
+- a **faixa permitida** à IA (âncora ±25), em destaque;
+- **onde a IA pontuou**, como marcador colorido pela prioridade;
+- e o desvio em pontos, escrito por extenso.
+
+É a trava de ±25 (Parte 13 abaixo) deixando de ser um parágrafo de
+documentação e virando algo que dá para apontar na tela.
+
+**Nota de segurança do próprio painel:** títulos e descrições exibidos
+vêm dos scanners, ou seja, podem conter texto controlado por quem
+escreveu o código analisado. Por isso **todo conteúdo dinâmico é
+inserido via `textContent`** — o `app.js` não usa `innerHTML`,
+`insertAdjacentHTML` nem `document.write` em lugar nenhum. Um painel de
+segurança vulnerável a XSS seria uma ironia cara.
+
+---
+
+## Parte 12 — CI: segurança na esteira
+
+O workflow em `.github/workflows/seguranca.yml` roda **Bandit** (SAST) e
+**Trivy** (SCA) a cada push e pull request, publicando os relatórios como
+artefatos da execução, na aba **Actions** do GitHub.
+
+Os jobs usam `continue-on-error` de propósito: a `demo_app` é vulnerável por
+definição, então achados **não** devem quebrar o build. O objetivo é gerar
+evidência contínua de que a análise roda dentro do ciclo, não bloquear merge.
+
+---
+
+## Parte 13 — A trava de ±25 pontos
 
 O que impede a IA de "achar tudo crítico" e, com isso, destruir a própria
 utilidade da fila priorizada.
@@ -406,139 +695,25 @@ Consequências práticas:
   tente reduzi-la.
 - Se o modelo devolver um valor fora da faixa, o score é cortado no limite e a
   justificativa registra o corte — o comportamento fica auditável.
+- Se o modelo devolver algo que nem é número (ex: campo vazio, texto), o
+  score cai para o CVSS puro em vez de quebrar o pipeline.
 
 As faixas de prioridade seguem o padrão oficial do CVSS: Crítica ≥ 90,
 Alta 70–89, Média 40–69, Baixa < 40.
 
 > A IA opina, o CVSS ancora.
 
-## 13. CI — segurança na esteira
+### Outros cuidados de segurança já implementados
 
-O workflow em `.github/workflows/seguranca.yml` roda **Bandit** (SAST) e
-**Trivy** (SCA) a cada push e pull request, publicando os relatórios como
-artefatos da execução, na aba **Actions**.
+- Sanitização de texto antes de qualquer chamada aos agentes de IA
+  (`BaseAgent.sanitize`), reduzindo risco de prompt injection vindo de
+  descrições de vulnerabilidades controláveis por atacante.
+- Fallback determinístico no Risk Agent caso a API de IA falhe.
+- `.env` fora do controle de versão (já coberto pelo `.gitignore`).
 
-Os jobs usam `continue-on-error` de propósito: a `demo_app` é vulnerável por
-definição, então achados **não** devem quebrar o build. O objetivo é gerar
-evidência contínua de que a análise roda dentro do ciclo, não bloquear merge.
+---
 
-## 14. API HTTP (FastAPI)
-
-`api.py` expõe o mesmo pipeline como serviço, para que qualquer cliente —
-front-end web, outra ferramenta, a própria CI — consuma o motor pela rede.
-
-A camada **não reimplementa nada**: importa `coletar_achados`,
-`coletar_via_defectdojo` e `processar_com_agentes` do `orchestrator.py`.
-A linha de comando continua funcionando exatamente como antes.
-
-```bash
-uvicorn api:app --reload
-```
-
-Documentação interativa (Swagger) em <http://localhost:8000/docs>.
-
-### Endpoints
-
-| Método | Rota | Para quê |
-|---|---|---|
-| `GET` | `/health` | Serviço de pé, provedor de IA e se a chave está configurada |
-| `POST` | `/scans` | Dispara um escaneamento. Devolve `scan_id` na hora (202) |
-| `GET` | `/scans` | Lista os escaneamentos, mais recente primeiro |
-| `GET` | `/scans/{id}` | Status, progresso e contagem por prioridade |
-| `GET` | `/scans/{id}/findings` | Achados, com filtros — alimenta a tabela do front |
-| `GET` | `/scans/{id}/findings/{fid}` | Um achado, com explicação e remediação da IA |
-| `DELETE` | `/scans/{id}` | Remove o escaneamento e seu arquivo de resultado |
-
-Filtros de `/findings`: `prioridade` (repetível), `ferramenta`, `score_min`
-e `busca` (texto livre em título e descrição).
-
-### Escaneamentos são assíncronos
-
-Um scan real leva minutos — scanners e uma chamada de IA por achado. Então o
-`POST /scans` responde **202 Accepted** imediatamente com o `scan_id`, e o
-cliente acompanha:
-
-```
-na_fila → coletando → analisando → concluido
-                          ↑
-              progresso: {analisados, total}
-```
-
-O campo `progresso` existe porque `processar_com_agentes` aceita um callback
-opcional `on_progress(analisados, total)`. Quem não passa o callback — o CLI —
-não muda em nada.
-
-### Exemplo
-
-```bash
-# dispara em modo demo (não precisa de scanner instalado)
-curl -X POST http://localhost:8000/scans \
-  -H "Content-Type: application/json" \
-  -d '{"modo":"demo","exposto_internet":true,"dados_sensiveis":true}'
-# -> {"scan_id":"a1b2c3d4e5f6","status":"na_fila",...}
-
-# acompanha
-curl http://localhost:8000/scans/a1b2c3d4e5f6
-
-# só o que é crítico ou alto
-curl "http://localhost:8000/scans/a1b2c3d4e5f6/findings?prioridade=CRITICA&prioridade=ALTA"
-```
-
-### Persistência
-
-Os resultados ficam em memória e são gravados em `resultados/{scan_id}.json`,
-recarregados quando o servidor sobe. É proposital não haver banco de dados:
-para o escopo do projeto, arquivo resolve e mantém tudo inspecionável.
-
-## 15. Interface web (`web/`)
-
-HTML, CSS e JavaScript puros — **sem framework e sem build**. É servida pela
-própria FastAPI, então um comando sobe tudo:
-
-```bash
-uvicorn api:app --reload
-# painel:        http://localhost:8000
-# documentação:  http://localhost:8000/docs
-```
-
-Servir o front pela API é decisão de projeto, não preguiça: uma origem só,
-sem CORS no caminho, e nada de precisar subir um segundo servidor na hora
-da demonstração.
-
-### O que a tela faz
-
-- **Dispara escaneamentos** nos três modos (demo, diretório, DefectDojo),
-  com os interruptores de contexto que alimentam o Risk Agent — "exposto à
-  internet" e "lida com dado sensível".
-- **Acompanha o progresso** em tempo real: `coletando → analisando`, com o
-  contador de achados já processados vindo do `on_progress` da API.
-- **Contagem por severidade** em painéis no topo.
-- **Tabela priorizada**, com filtro por severidade, por ferramenta e busca
-  textual. Os filtros são aplicados **no servidor**, pela própria API — a tela
-  não filtra em memória.
-- **Detalhe de cada achado**, com a explicação e a remediação escritas pela IA.
-
-### A régua da trava
-
-No detalhe de cada achado há uma régua de 0 a 100 mostrando:
-
-- a **âncora** (`CVSS × 10`), como linha vertical;
-- a **faixa permitida** à IA (âncora ±25), em destaque;
-- **onde a IA pontuou**, como marcador colorido pela prioridade;
-- e o desvio em pontos, escrito por extenso.
-
-É a seção 12 deste README, visível achado por achado — a trava deixa de ser
-um parágrafo de documentação e vira algo que dá para apontar na tela.
-
-### Nota de segurança do próprio painel
-
-Títulos e descrições exibidos vêm dos scanners, ou seja, podem conter texto
-controlado por quem escreveu o código analisado. Por isso **todo conteúdo
-dinâmico é inserido via `textContent`** — o `app.js` não usa `innerHTML`,
-`insertAdjacentHTML` nem `document.write` em lugar nenhum. Um painel de
-segurança vulnerável a XSS seria uma ironia cara.
-
-## 16. Problemas comuns já resolvidos
+## Parte 14 — Problemas comuns já resolvidos
 
 Erros reais que apareceram rodando o projeto num Debian/Parrot OS de verdade,
 e o que resolveu cada um. Confira aqui antes de abrir uma issue.
@@ -550,7 +725,30 @@ e o que resolveu cada um. Confira aqui antes de abrir uma issue.
 | ZAP: porta em uso | Conflito com o DefectDojo (8080/8085) | Suba o ZAP em `-port 8090`, nunca 8080/8085 |
 | Wazuh: versão do agente incompatível | Agente mais novo que o Manager | Instale a mesma versão do Manager: `apt-cache madison wazuh-agent` mostra as disponíveis |
 | Gemini: `404 model not found` | Nome de modelo descontinuado | Já resolvido — `agents/base_agent.py` usa `gemini-3.5-flash` / `gemini-3.1-flash-lite` |
-| Gemini: `429 RESOURCE_EXHAUSTED` | Limite do free tier (RPM) | Já tratado: `base_agent.py` reconhece o erro e espera com backoff automático antes de tentar de novo |
+| Gemini: `429 RESOURCE_EXHAUSTED` | Limite do free tier (RPM) | Já tratado: espera com backoff e troca para o modelo de reserva automaticamente |
+| Gemini: `API key not valid` | Chave errada, revogada, ou ainda com o texto de exemplo | Mensagem já aponta a causa direto — corrija a chave ou troque para `AI_PROVIDER=ollama` |
+| Risk Agent: `KeyError` em 'justificativa' | A IA devolveu JSON sem esse campo | Já corrigido em `risk_agent.py` com `.get("justificativa", "")` |
+| Risk Agent: score não numérico da IA | A IA devolveu texto no lugar de um número | Já corrigido: cai para o CVSS puro em vez de quebrar |
+| Ollama: `ConnectionError` | O serviço não está rodando | `sudo systemctl start ollama` |
+| Ollama: erro ao gerar resposta / modelo ausente | O modelo configurado não foi baixado | `ollama pull llama3.1:8b` (ou o nome em `OLLAMA_MODEL`) |
 | DefectDojo: `400 Bad Request` no import | Faltava `product_type_name` no payload | Já corrigido em `defectdojo_client.py` — o campo é obrigatório e sempre enviado |
 | DefectDojo: erro ao importar o scan do ZAP | O parser "ZAP Scan" exige XML, não JSON | Já corrigido: `dast_scanner.py` salva com `zap.core.xmlreport()`, e o orquestrador importa `zap_raw.xml` |
 | DefectDojo: token rejeitado | Colou a linha inteira, incluindo a palavra "Token" | Cole só o valor que vem depois de "Token " |
+
+---
+
+## Roadmap
+
+- [x] API HTTP própria (FastAPI)
+- [x] Painel web consumindo essa API
+- [x] Provedor de IA local (Ollama), sem depender de internet
+- [ ] Mais scanners (Semgrep)
+- [ ] Ambiente de produção real, não só demonstração local
+
+---
+
+## Equipe
+
+Enzo Seixas · Gabriel Cirone · Guilherme Benjamin · João Pedro · Matheus Silva
+
+FIAP Paulista — Challenge Pride 2026

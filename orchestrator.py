@@ -167,10 +167,16 @@ def main():
     args = parser.parse_args()
 
     provider = os.getenv("AI_PROVIDER", "gemini").lower()
-    chave_necessaria = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY"
-    if not os.getenv(chave_necessaria):
-        print(f"AVISO: variável {chave_necessaria} não definida. Configure o arquivo .env")
+    chaves_necessarias = {"gemini": "GEMINI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+    chave_necessaria = chaves_necessarias.get(provider)  # ollama não usa chave
+    valor_chave = os.getenv(chave_necessaria, "") if chave_necessaria else ""
+    if chave_necessaria and (not valor_chave or valor_chave.startswith("sua-chave")):
+        print(f"AVISO: {chave_necessaria} não está preenchida no .env (provedor atual: {provider}).")
+        print("Preencha a chave, ou troque para AI_PROVIDER=ollama para rodar sem chave.")
         return
+
+    detalhe = f" (modelo {os.getenv('OLLAMA_MODEL', 'llama3.1:8b')})" if provider == "ollama" else ""
+    print(f"[ia] Provedor de IA em uso: {provider}{detalhe}")
 
     if args.demo:
         achados = json.loads(Path("sample_data/sample_findings.json").read_text(encoding="utf-8"))

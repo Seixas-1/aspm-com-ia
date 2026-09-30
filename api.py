@@ -139,6 +139,25 @@ def _agora() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _status_chave_ia() -> tuple[str, str | None, bool]:
+    """
+    Devolve (provider, variavel_esperada, configurada).
+
+    `variavel_esperada` é None para "ollama", que não usa chave — sem essa
+    distinção, o provider ollama era erroneamente tratado como se precisasse
+    de ANTHROPIC_API_KEY (mesmo bug que já existiu no orchestrator.py).
+    """
+    provider = os.getenv("AI_PROVIDER", "gemini").lower()
+    variaveis = {"gemini": "GEMINI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+    variavel = variaveis.get(provider)
+    if variavel is None:
+        return provider, None, True  # ollama não precisa de chave
+
+    valor = os.getenv(variavel, "")
+    configurada = bool(valor) and not valor.startswith("sua-chave")
+    return provider, variavel, configurada
+
+
 def _contar_por_prioridade(achados: list[dict]) -> dict[str, int]:
     contagem: dict[str, int] = {}
     for achado in achados:
@@ -278,12 +297,11 @@ app.add_middleware(
 @app.get("/health", tags=["sistema"])
 def health() -> dict[str, Any]:
     """Diz se o serviço está de pé e se a chave de IA está configurada."""
-    provider = os.getenv("AI_PROVIDER", "gemini").lower()
-    variavel = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY"
+    provider, variavel, configurada = _status_chave_ia()
     return {
         "status": "ok",
         "provider_ia": provider,
-        "chave_configurada": bool(os.getenv(variavel)),
+        "chave_configurada": configurada,
         "variavel_esperada": variavel,
         "scans_em_memoria": len(_scans),
     }
@@ -296,12 +314,12 @@ def criar_scan(req: NovoScan, tarefas: BackgroundTasks) -> ResumoScan:
 
     O processamento roda em segundo plano — acompanhe por GET /scans/{scan_id}.
     """
-    provider = os.getenv("AI_PROVIDER", "gemini").lower()
-    variavel = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY"
-    if not os.getenv(variavel):
+    provider, variavel, configurada = _status_chave_ia()
+    if not configurada:
         raise HTTPException(
             status_code=503,
-            detail=f"Variável {variavel} não configurada. Preencha o arquivo .env.",
+            detail=f"Variável {variavel} não configurada. Preencha o arquivo .env "
+                    f"(ou troque para AI_PROVIDER=ollama para rodar sem chave).",
         )
 
     if req.modo is not ModoScan.demo and not Path(req.path).exists():

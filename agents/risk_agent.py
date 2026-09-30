@@ -67,7 +67,7 @@ Contexto do ativo:
 
 Retorne o JSON de avaliação de risco.
 """
-        texto = self._call_ia(SYSTEM_PROMPT, prompt, max_tokens=250)
+        texto = self._call_ia(SYSTEM_PROMPT, prompt, max_tokens=300, json_mode=True)
         resultado = self._parse_json_safely(texto)
 
         # Fallback determinístico caso a IA falhe ou fique indisponível
@@ -84,7 +84,10 @@ Retorne o JSON de avaliação de risco.
             # o modelo "ignore" o CVSS e trate tudo como crítico só por causa
             # do contexto (ex: debug info exposta virando CRITICA).
             score_base = vulnerabilidade.get("cvss", 5) * 10
-            score_ia = resultado.get("score", score_base)
+            try:
+                score_ia = float(resultado.get("score", score_base))
+            except (TypeError, ValueError):
+                score_ia = score_base  # modelo devolveu algo que não é número: usa o CVSS base
             score_final = max(0, min(100, max(score_base - 25, min(score_base + 25, score_ia))))
 
             if score_final != score_ia:
