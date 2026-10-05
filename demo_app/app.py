@@ -97,4 +97,4 @@ if __name__ == "__main__":
     init_db()
     print("App de demo rodando em http://localhost:5000")
     print("ATENÇÃO: app propositalmente vulnerável, use apenas em ambiente local/isolado.")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True)
