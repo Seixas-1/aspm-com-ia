@@ -1,5 +1,19 @@
 # ASPM com IA — Tomahawks
 
+## Equipe
+
+Grupo **Tomahawks** — FIAP Paulista, turma 1TDCPF · Challenge Pride 2026
+
+| Integrante | RM |
+|---|---|
+| Enzo Seixas | 572294 |
+| Gabriel Cirone | 568717 |
+| Guilherme Reis | 573724 |
+| João Pedro | 570090 |
+| Matheus Silva | 572335 |
+
+---
+
 Projeto do Challenge Pride 2026 — FIAP, turma 1TDCPF. **MVP entregue na
 Sprint 4.** Guia comando por comando, do sistema zerado até o projeto
 funcionando por completo: 3 Agentes de IA (Gemini, Ollama local ou
@@ -761,11 +775,3 @@ sob a sua própria licença.
 **Aplicação de demonstração.** A pasta `demo_app/` contém uma aplicação
 **propositalmente vulnerável**, criada apenas como alvo de testes. Não a
 utilize em produção nem a exponha à internet.
-
----
-
-## Equipe
-
-Enzo Seixas · Gabriel Cirone · Guilherme Reis · João Pedro · Matheus Silva
-
-FIAP Paulista — Challenge Pride 2026
