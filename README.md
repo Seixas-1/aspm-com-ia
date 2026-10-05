@@ -9,7 +9,7 @@ Grupo **Tomahawks** — FIAP Paulista, turma 1TDCPF · Challenge Pride 2026
 | Enzo Seixas | 572294 |
 | Gabriel Cirone | 568717 |
 | Guilherme Reis | 573724 |
-| João Pedro | 570090 |
+| João Pedro Ribeiro | 570090 |
 | Matheus Silva | 572335 |
 
 ---
