@@ -747,8 +747,25 @@ e o que resolveu cada um. Confira aqui antes de abrir uma issue.
 
 ---
 
+## Licença
+
+Licenciado sob a **Licença BSD de 3 Cláusulas** (SPDX: `BSD-3-Clause`) — texto
+completo em [`LICENSE.md`](LICENSE.md).
+
+**Dependências de terceiros.** O projeto usa ferramentas e bibliotecas de
+terceiros (Bandit, Trivy, OWASP ZAP, DefectDojo, Wazuh, Streamlit, Flask).
+Elas **não são distribuídas dentro deste repositório**: são instaladas
+separadamente (veja `requirements.txt` e este README) e cada uma continua
+sob a sua própria licença.
+
+**Aplicação de demonstração.** A pasta `demo_app/` contém uma aplicação
+**propositalmente vulnerável**, criada apenas como alvo de testes. Não a
+utilize em produção nem a exponha à internet.
+
+---
+
 ## Equipe
 
-Enzo Seixas · Gabriel Cirone · Guilherme Benjamin · João Pedro · Matheus Silva
+Enzo Seixas · Gabriel Cirone · Guilherme Reis · João Pedro · Matheus Silva
 
 FIAP Paulista — Challenge Pride 2026

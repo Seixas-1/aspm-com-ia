@@ -1,12 +1,3 @@
-# Licença
-
-**ASPM com IA** — projeto do Challenge Pride 2026, FIAP Paulista (Turma 1TDCPF).
-
-Este projeto é licenciado sob a **Licença BSD de 3 Cláusulas**
-(*BSD 3-Clause License*, identificador SPDX: `BSD-3-Clause`).
-
----
-
 BSD 3-Clause License
 
 Copyright (c) 2026, Tomahawks (Enzo Seixas, Gabriel Cirone, Guilherme Reis, João Pedro, Matheus Silva)
@@ -36,19 +27,3 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
----
-
-## Dependências de terceiros
-
-Este projeto utiliza ferramentas e bibliotecas de terceiros (por exemplo
-Bandit, Trivy, OWASP ZAP, DefectDojo, Wazuh, Streamlit e Flask). Elas **não
-são distribuídas dentro deste repositório**: são instaladas separadamente
-(veja `requirements.txt` e o `README.md`) e cada uma continua sob a sua
-própria licença.
-
-## Aviso sobre a aplicação de demonstração
-
-A pasta `demo_app/` contém uma aplicação **propositalmente vulnerável**,
-criada apenas como alvo de testes. Não a utilize em produção nem a exponha
-à internet.
