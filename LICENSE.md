@@ -1,6 +1,6 @@
 BSD 3-Clause License
 
-Copyright (c) 2026, Tomahawks (Enzo Seixas, Gabriel Cirone, Guilherme Reis, João Pedro Ribeiro, Matheus Silva)
+Copyright (c) 2026, Tomahawks (Enzo Seixas, Gabriel Cirone, Guilherme Reis, João Pedro Ribeiro, Matheus Silva Souza)
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

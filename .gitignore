@@ -57,3 +57,12 @@ desktop.ini
 *.sqlite
 *.sqlite3
 *.db
+
+# ── Mídia (vídeos, áudios e fotos de divulgação não são código) ──
+/*.mp4
+/*.mpeg
+/*.mp3
+/*.mov
+/*.jpeg
+/*.jpg
+/WhatsApp Image*

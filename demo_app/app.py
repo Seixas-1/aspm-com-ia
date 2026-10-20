@@ -1,6 +1,6 @@
 """
 App de Demonstração — PROPOSITALMENTE VULNERÁVEL
-Usada apenas como alvo de teste para o DAST (OWASP ZAP) na apresentação.
+Usada apenas como alvo de teste para o DAST (OWASP ZAP) em demonstrações.
 
 NUNCA implante isso em produção ou exponha à internet.
 

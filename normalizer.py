@@ -21,7 +21,8 @@ import hashlib
 
 def _make_id(*parts: str) -> str:
     raw = "|".join(str(p) for p in parts)
-    return hashlib.sha1(raw.encode()).hexdigest()[:10]
+    # SHA-1 só para gerar um ID curto e estável do achado, não para segurança.
+    return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:10]
 
 
 def normalize_bandit(achados_brutos: list[dict]) -> list[dict]:

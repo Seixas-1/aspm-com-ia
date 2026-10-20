@@ -31,7 +31,6 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -283,15 +282,10 @@ app = FastAPI(
     ),
 )
 
-# O front-end roda em outra porta durante o desenvolvimento.
-# Em produção, troque por a lista de origens reais.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["*"],
-)
+# Sem CORS de propósito: o painel é servido por esta mesma API (mesma origem).
+# Liberar origens externas deixaria qualquer site aberto no navegador disparar
+# e ler escaneamentos em localhost. Se um front em outro endereço for
+# necessário, liste ali só as origens exatas, nunca "*".
 
 
 @app.get("/health", tags=["sistema"])

@@ -2,22 +2,19 @@
 
 ## Equipe
 
-Grupo **Tomahawks** — FIAP Paulista, turma 1TDCPF · Challenge Pride 2026
+Projeto do Challenge FIAP 2026, desenvolvido pelo grupo **Tomahawks**:
 
-| Integrante | RM |
-|---|---|
-| Enzo Seixas | 572294 |
-| Gabriel Cirone | 568717 |
-| Guilherme Reis | 573724 |
-| João Pedro Ribeiro | 570090 |
-| Matheus Silva | 572335 |
+- Enzo Seixas
+- Gabriel Cirone
+- Guilherme Reis
+- João Pedro Ribeiro
+- Matheus Silva Souza
 
 ---
 
-Projeto do Challenge Pride 2026 — FIAP, turma 1TDCPF. **MVP entregue na
-Sprint 4.** Guia comando por comando, do sistema zerado até o projeto
-funcionando por completo: 3 Agentes de IA (Gemini, Ollama local ou
-Anthropic), API HTTP própria, painel web, DefectDojo e Wazuh integrados.
+Guia comando por comando, do sistema zerado até o projeto funcionando por
+completo: 3 Agentes de IA (Gemini, Ollama local ou Anthropic), API HTTP
+própria, painel web, DefectDojo e Wazuh integrados.
 
 Sempre que um passo pedir `sudo`, digite a senha da sua conta quando
 solicitado. Sempre que um bloco pedir "venv ativado", confira se o
@@ -132,7 +129,7 @@ inteiro. Precisa aparecer `✅ Gemini respondeu: OK`.
 
 Se preferir rodar os 3 Agentes sem depender de internet nem de
 cadastro — útil também como plano B se a cota gratuita do Gemini
-esgotar em pleno ensaio da apresentação:
+esgotar no meio de uma demonstração:
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
@@ -575,6 +572,14 @@ uvicorn api:app --reload
 Sobe os dois juntos, numa origem só (sem CORS no caminho):
 - Painel: `http://localhost:8000`
 - Documentação interativa (Swagger): `http://localhost:8000/docs`
+
+> **Segurança da API — leia antes de expor.** Ela foi feita para uso
+> **local**: não tem autenticação, e o parâmetro `path` do `POST /scans`
+> permite escanear qualquer pasta da máquina onde o servidor roda. Por isso o
+> `uvicorn` sobe em `127.0.0.1` por padrão — **não use `--host 0.0.0.0`**
+> nem publique a porta 8000 na internet sem antes colocar autenticação na
+> frente. O CORS fica desligado de propósito, para que nenhum site aberto no
+> navegador consiga chamar a API.
 
 ### Endpoints
 
